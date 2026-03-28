@@ -49,6 +49,7 @@ export interface Settings {
   max_files: number
   context_aware: boolean
   summary_cache_ttl_minutes: number
+  ocr_enabled: boolean
 }
 
 export interface ScanRequest {

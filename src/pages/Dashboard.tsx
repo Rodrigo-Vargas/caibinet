@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderOpen, Scan, AlertCircle, WifiOff, Square } from 'lucide-react'
 import { api } from '../api/client'
@@ -15,6 +15,10 @@ export default function Dashboard() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
   const [fileList, setFileList] = useState<string[]>([])
+
+  // Live elapsed timer — starts when scan begins, locks to server value when done
+  const [elapsedLive, setElapsedLive] = useState<number | null>(null)
+  const scanStartRef = useRef<number | null>(null)
 
   // Poll session status while scanning
   const { data: session } = useQuery({
@@ -71,6 +75,29 @@ export default function Dashboard() {
     },
     onError: (err: Error) => setScanError(err.message)
   })
+
+  // Live elapsed clock: tick while scanning, lock to server value when done
+  const isScanActive = scanMutation.isPending || (session?.status === 'running') || (session?.status === 'pending')
+  useEffect(() => {
+    if (isScanActive) {
+      if (scanStartRef.current === null) {
+        scanStartRef.current = Date.now()
+        setElapsedLive(0)
+      }
+      const id = setInterval(() => {
+        setElapsedLive(Math.floor((Date.now() - scanStartRef.current!) / 1000))
+      }, 1000)
+      return () => clearInterval(id)
+    } else if (session?.elapsed_seconds != null) {
+      // Scan ended — lock to the precise server-side duration
+      setElapsedLive(session.elapsed_seconds)
+      scanStartRef.current = null
+    } else if (!activeSessionId) {
+      // No active scan at all — reset
+      setElapsedLive(null)
+      scanStartRef.current = null
+    }
+  }, [isScanActive, session?.elapsed_seconds, activeSessionId])
 
   const cancelMutation = useMutation({
     mutationFn: () => api.cancelSession(activeSessionId!),
@@ -174,6 +201,7 @@ export default function Dashboard() {
           totalFiles={session.total_files}
           processedFiles={session.processed_files}
           isCancelled={isCancelled}
+          elapsed={elapsedLive ?? undefined}
         />
       )}
 
@@ -195,7 +223,7 @@ export default function Dashboard() {
             processedCount={session?.processed_files ?? 0}
             isRunning={isRunning && !isSummarizing}
             sessionId={activeSessionId}
-            totalElapsed={session?.elapsed_seconds}
+            totalElapsed={elapsedLive ?? undefined}
             activeLabel="Reviewing…"
             onApplied={() => {
               queryClient.invalidateQueries({ queryKey: ['operations', activeSessionId] })

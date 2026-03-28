@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "build:core": "pyinstaller core/main.py --onefile --name core --distpath dist-core",
+    "build:core": "pyinstaller core.spec --distpath dist-core",
     "dist": "npm run build && electron-builder",
     "dist:linux": "npm run build && electron-builder --linux",
     "dist:win": "npm run build && electron-builder --win",

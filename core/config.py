@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     max_files: int = 1  # 0 = no limit
     context_aware: bool = False  # Pass full file list to LLM for more conservative decisions
     summary_cache_ttl_minutes: int = 1440  # 0 = cache disabled (1440 = 1 day)
+    ocr_enabled: bool = False  # Run Tesseract OCR on image files (requires tesseract-ocr system package)
 
     class Config:
         env_prefix = "CAIBINET_"

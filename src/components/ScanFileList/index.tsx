@@ -356,11 +356,6 @@ export default function ScanFileList({
           ) : (
             <>
               {operations.length} proposed · {approved.length} approved
-              {totalElapsed != null && (
-                <span className="ml-2 text-gray-500" title="Total scan time">
-                  · <Clock className="inline h-3 w-3 mb-0.5" /> {formatElapsed(totalElapsed)}
-                </span>
-              )}
             </>
           )}
         </p>

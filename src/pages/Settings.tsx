@@ -27,9 +27,23 @@ export default function SettingsPage() {
     max_files: 1,
     context_aware: false,
     summary_cache_ttl_minutes: 1440,
+    ocr_enabled: false,
   })
 
   const [pingStatus, setPingStatus] = useState<'idle' | 'ok' | 'err'>('idle')
+  const [clearCacheStatus, setClearCacheStatus] = useState<'idle' | 'clearing' | 'done' | 'err'>('idle')
+
+  const handleClearCache = async () => {
+    setClearCacheStatus('clearing')
+    try {
+      await api.clearSummaryCache()
+      setClearCacheStatus('done')
+      setTimeout(() => setClearCacheStatus('idle'), 3000)
+    } catch {
+      setClearCacheStatus('err')
+      setTimeout(() => setClearCacheStatus('idle'), 3000)
+    }
+  }
   const [ignorePatternsText, setIgnorePatternsText] = useState('')
 
   useEffect(() => {
@@ -194,6 +208,24 @@ export default function SettingsPage() {
           </div>
         </label>
 
+        <label className="flex items-start gap-3 cursor-pointer pt-2 border-t border-gray-700">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-500 focus:ring-brand-500"
+            checked={form.ocr_enabled}
+            onChange={(e) => setForm((f) => ({ ...f, ocr_enabled: e.target.checked }))}
+          />
+          <div>
+            <p className="text-sm text-gray-200 font-medium">Enable OCR for images</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              When enabled, Tesseract OCR is run on image files (PNG, JPEG, TIFF, BMP, WebP)
+              so their text content can be used for smarter naming and categorisation.
+              Requires <span className="font-mono">tesseract-ocr</span> to be installed on the system
+              and the <span className="font-mono">pytesseract</span> + <span className="font-mono">Pillow</span> Python packages.
+            </p>
+          </div>
+        </label>
+
         <div className="space-y-1 pt-2 border-t border-gray-700">
           <label className="text-xs text-gray-400">Summary cache TTL (minutes)</label>
           <p className="text-xs text-gray-500">
@@ -201,15 +233,35 @@ export default function SettingsPage() {
             redundant LLM calls on future scans. Set to <span className="font-mono">0</span> to
             disable caching.
           </p>
-          <input
-            type="number"
-            min={0}
-            className="input w-32"
-            value={form.summary_cache_ttl_minutes}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, summary_cache_ttl_minutes: Math.max(0, parseInt(e.target.value) || 0) }))
-            }
-          />
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min={0}
+              className="input w-32"
+              value={form.summary_cache_ttl_minutes}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, summary_cache_ttl_minutes: Math.max(0, parseInt(e.target.value) || 0) }))
+              }
+            />
+            <button
+              className="btn-secondary text-xs flex items-center gap-1.5 disabled:opacity-50"
+              onClick={handleClearCache}
+              disabled={clearCacheStatus === 'clearing'}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${clearCacheStatus === 'clearing' ? 'animate-spin' : ''}`} />
+              {clearCacheStatus === 'clearing' ? 'Clearing…' : 'Clear cache'}
+            </button>
+            {clearCacheStatus === 'done' && (
+              <span className="text-xs text-green-400 flex items-center gap-1">
+                <CheckCircle className="h-3.5 w-3.5" /> Cleared
+              </span>
+            )}
+            {clearCacheStatus === 'err' && (
+              <span className="text-xs text-red-400 flex items-center gap-1">
+                <XCircle className="h-3.5 w-3.5" /> Failed
+              </span>
+            )}
+          </div>
         </div>
       </section>
 

@@ -17,11 +17,20 @@ interface ScanPhaseStepperProps {
   processedFiles: number
   /** True if scan ended via cancellation */
   isCancelled?: boolean
+  /** Live elapsed seconds (whole-process clock, including this phase) */
+  elapsed?: number
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+function formatElapsed(s: number): string {
+  if (s < 60) return `${Math.floor(s)}s`
+  const m = Math.floor(s / 60)
+  const rem = Math.floor(s % 60)
+  return `${m}m ${rem}s`
+}
+
 function stepNode(state: StepState, index: number) {
   if (state === 'done') {
     return (
@@ -54,6 +63,7 @@ export default function ScanPhaseStepper({
   totalFiles,
   processedFiles,
   isCancelled = false,
+  elapsed,
 }: ScanPhaseStepperProps) {
   const isSummarizing = isRunning && phase === 'summarizing'
   const isAnalyzing = isRunning && phase === 'analyzing'
@@ -79,6 +89,15 @@ export default function ScanPhaseStepper({
 
   return (
     <div className="card py-3 px-4">
+      <div className="flex items-center justify-between mb-2.5">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Progress</span>
+        {elapsed != null && (
+          <span className="flex items-center gap-1 text-xs text-gray-400" title="Elapsed time (full process)">
+            <Clock className="h-3 w-3" />
+            {formatElapsed(elapsed)}
+          </span>
+        )}
+      </div>
       <div className="flex items-start gap-0">
         {/* ── Step 1: Analyze contents ── */}
         <div className="flex flex-1 flex-col gap-2">
@@ -199,7 +218,6 @@ export default function ScanPhaseStepper({
         {/* ── Cancelled notice ── */}
         {isCancelled && (
           <div className="ml-4 flex items-center self-center gap-1 text-xs text-gray-500 shrink-0">
-            <Clock className="h-3.5 w-3.5" />
             Stopped
           </div>
         )}

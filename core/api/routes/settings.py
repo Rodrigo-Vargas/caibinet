@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 
 from ...config import settings as app_settings
-from ...db.models import SettingEntry
+from ...db.models import SettingEntry, SummaryCache
 from ...db.session import get_db
 from ...ai.ollama import OllamaProvider
 from ...ai.base import ProviderConfig
@@ -28,6 +28,7 @@ class SettingsOut(BaseModel):
     max_files: int
     context_aware: bool
     summary_cache_ttl_minutes: int
+    ocr_enabled: bool
 
 
 class SettingsIn(BaseModel):
@@ -38,6 +39,7 @@ class SettingsIn(BaseModel):
     max_files: Optional[int] = None
     context_aware: Optional[bool] = None
     summary_cache_ttl_minutes: Optional[int] = None
+    ocr_enabled: Optional[bool] = None
 
 
 def _load_settings(db: DBSession) -> SettingsOut:
@@ -60,6 +62,7 @@ def _load_settings(db: DBSession) -> SettingsOut:
         max_files=_get("max_files", app_settings.max_files),
         context_aware=_get("context_aware", app_settings.context_aware),
         summary_cache_ttl_minutes=_get("summary_cache_ttl_minutes", app_settings.summary_cache_ttl_minutes),
+        ocr_enabled=_get("ocr_enabled", app_settings.ocr_enabled),
     )
 
 
@@ -87,6 +90,19 @@ def put_settings(body: SettingsIn, db: DBSession = Depends(get_db)) -> SettingsO
             object.__setattr__(app_settings, key, value)
     db.commit()
     return _load_settings(db)
+
+
+class CacheClearResult(BaseModel):
+    deleted: int
+
+
+@router.delete("/cache/summary", response_model=CacheClearResult)
+def clear_summary_cache(db: DBSession = Depends(get_db)) -> CacheClearResult:
+    """Delete all cached LLM file summaries."""
+    deleted = db.query(SummaryCache).delete()
+    db.commit()
+    log.info("Summary cache cleared: %d entries deleted", deleted)
+    return CacheClearResult(deleted=deleted)
 
 
 @router.get("/settings/models", response_model=List[str])

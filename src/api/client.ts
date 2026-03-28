@@ -114,5 +114,9 @@ export const api = {
     request<Settings>('/settings', { method: 'PUT', body: JSON.stringify(settings) }),
 
   // Ollama model list (proxied through backend)
-  listModels: () => request<string[]>('/settings/models')
+  listModels: () => request<string[]>('/settings/models'),
+
+  // Cache
+  clearSummaryCache: () =>
+    request<{ deleted: number }>('/cache/summary', { method: 'DELETE' })
 }
