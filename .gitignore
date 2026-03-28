@@ -1,0 +1,36 @@
+# Node / Electron
+node_modules/
+dist/
+dist-electron/
+release/
+out/
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist-core/
+build/
+*.spec
+
+# Database
+*.db
+*.sqlite3
+
+# Env
+.env
+.env.local
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db

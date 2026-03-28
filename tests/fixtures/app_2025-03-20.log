@@ -1,0 +1,7 @@
+2025-03-20 08:01:03 INFO  server: Starting on port 8080
+2025-03-20 08:01:04 INFO  db: Connected to postgresql://localhost/app
+2025-03-20 09:15:22 WARN  auth: Failed login attempt for user=admin ip=10.0.0.5
+2025-03-20 11:42:55 ERROR worker: Task timed out after 30s job_id=abc-123
+2025-03-20 11:42:56 INFO  worker: Retrying job_id=abc-123 attempt=2
+2025-03-20 11:43:30 INFO  worker: Job completed job_id=abc-123
+2025-03-20 18:00:00 INFO  server: Graceful shutdown initiated

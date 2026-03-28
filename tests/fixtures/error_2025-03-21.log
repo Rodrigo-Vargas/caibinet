@@ -1,0 +1,7 @@
+2025-03-21 03:14:07 ERROR api: Unhandled exception in /api/v1/export
+Traceback (most recent call last):
+  File 'app/routes/export.py', line 88, in handle_export
+    result = exporter.run(job)
+  File 'app/exporters/csv.py', line 42, in run
+    raise MemoryError('buffer exceeded 512 MB')
+MemoryError: buffer exceeded 512 MB

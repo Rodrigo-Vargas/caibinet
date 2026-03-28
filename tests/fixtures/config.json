@@ -1,0 +1,14 @@
+{
+  "app": "data-pipeline",
+  "version": "1.0.0",
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "pipeline_db"
+  },
+  "workers": 4,
+  "retry": {
+    "max_attempts": 3,
+    "backoff_seconds": 5
+  }
+}

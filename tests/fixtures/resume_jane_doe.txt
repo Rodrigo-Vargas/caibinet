@@ -1,0 +1,14 @@
+Jane Doe
+jane.doe@email.com | +1-555-0100
+
+EXPERIENCE
+─────────────────────────────────────────
+Senior Software Engineer  @ TechCorp  2020–present
+  • Led migration of monolith to microservices
+  • Reduced p99 latency by 40%
+
+Software Engineer         @ StartupXYZ  2017–2020
+  • Built real-time data pipeline (Kafka + Spark)
+
+EDUCATION
+B.Sc. Computer Science, State University, 2017

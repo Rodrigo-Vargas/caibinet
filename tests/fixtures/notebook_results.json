@@ -1,0 +1,16 @@
+{
+  "experiment": "ablation-study-v2",
+  "date": "2025-03-22",
+  "metrics": {
+    "accuracy": 0.934,
+    "f1": 0.921,
+    "precision": 0.948,
+    "recall": 0.895
+  },
+  "hyperparameters": {
+    "lr": 0.001,
+    "epochs": 50,
+    "batch_size": 32
+  },
+  "notes": "Best run so far. Dropout=0.3 helped significantly."
+}

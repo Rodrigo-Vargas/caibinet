@@ -1,0 +1,12 @@
+SERVICE AGREEMENT
+
+This agreement is entered into between Caibinet Inc. ("Client") and Acme Corp ("Vendor").
+
+1. SERVICES
+Vendor shall provide cloud hosting services as described in Exhibit A.
+
+2. TERM
+This agreement begins on 1 January 2025 and continues for 12 months.
+
+3. PAYMENT
+Client shall pay $2,000/month within 30 days of invoice.
