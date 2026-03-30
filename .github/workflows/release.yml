@@ -1,0 +1,156 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  # ── 1. Snap Store (Linux) ────────────────────────────────────────────────
+  release-snap:
+    name: Snap Store
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r core/requirements.txt pyinstaller
+
+      - name: Build Python sidecar
+        run: npm run build:core
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build Electron app & package snap
+        run: npm run build && npx electron-builder --linux snap
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to Snap Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: release/*.snap
+          release: stable
+
+  # ── 2. Microsoft Store (Windows) ────────────────────────────────────────
+  release-windows:
+    name: Microsoft Store
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r core/requirements.txt pyinstaller
+
+      - name: Build Python sidecar
+        run: npm run build:core
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build Electron app & package (nsis + appx)
+        run: npm run build && npx electron-builder --win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          WIN_CERT_SUBJECT_NAME: ${{ secrets.WIN_CERT_SUBJECT_NAME }}
+          APPX_PUBLISHER: ${{ secrets.APPX_PUBLISHER }}
+          APPX_IDENTITY_NAME: ${{ secrets.APPX_IDENTITY_NAME }}
+
+      - name: Upload release artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.exe
+            release/*.appx
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── 3. Mac App Store ─────────────────────────────────────────────────────
+  release-mac:
+    name: Mac App Store
+    runs-on: macos-14
+    # Only runs when Apple secrets are configured
+    if: ${{ vars.ENABLE_MAC_STORE == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r core/requirements.txt pyinstaller
+
+      - name: Build Python sidecar
+        run: npm run build:core
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Import Apple certificates
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTS_P12 }}
+          p12-password: ${{ secrets.APPLE_CERTS_PASSWORD }}
+
+      - name: Write provisioning profile
+        run: |
+          echo "${{ secrets.APPLE_PROVISIONING_PROFILE }}" | base64 --decode > build/embedded.provisionprofile
+
+      - name: Build Electron app & package (mas)
+        run: npm run build && npx electron-builder --mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.APPLE_CERTS_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTS_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload to App Store Connect (Transporter)
+        run: |
+          xcrun altool --upload-app \
+            --type osx \
+            --file release/mas/*.pkg \
+            --apiKey ${{ secrets.APP_STORE_CONNECT_API_KEY }} \
+            --apiIssuer ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}

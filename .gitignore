@@ -14,8 +14,13 @@ __pycache__/
 venv/
 *.egg-info/
 dist-core/
-build/
-*.spec
+
+# Build directory – commit plists/README, ignore binaries and secrets
+build/*.ico
+build/*.icns
+build/icons/
+build/*.provisionprofile
+build/*.p12
 
 # Database
 *.db
