@@ -39,6 +39,7 @@ export interface Operation {
   status: OperationStatus
   error?: string
   elapsed_seconds?: number
+  content_summary?: string
 }
 
 export interface Settings {
@@ -50,6 +51,7 @@ export interface Settings {
   context_aware: boolean
   summary_cache_ttl_minutes: number
   ocr_enabled: boolean
+  image_model: string
 }
 
 export interface ScanRequest {
@@ -89,4 +91,12 @@ export interface LLMHealthResponse {
   detail: string
   model: string
   ollama_url: string
+}
+
+export interface FilePreviewResponse {
+  content: string
+  is_binary: boolean
+  size: number
+  truncated: boolean
+  mime_type: string
 }

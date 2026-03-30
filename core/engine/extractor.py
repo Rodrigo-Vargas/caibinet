@@ -3,12 +3,16 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 from pathlib import Path
-from typing import Tuple
+from typing import TYPE_CHECKING, Tuple
 
 from .scanner import FileRecord
 from ..config import settings
+
+if TYPE_CHECKING:
+    from ..ai.ollama import OllamaProvider
 
 log = logging.getLogger(__name__)
 
@@ -75,6 +79,86 @@ def extract(record: FileRecord) -> Tuple[str, str]:
 
     # Everything else — use metadata only
     return "", "metadata_only"
+
+
+def extract_image_vision(path: Path, vision_provider: "OllamaProvider") -> str:
+    """Describe an image using a multimodal vision model.
+
+    Returns a plain-text description suitable for use as a file content
+    summary.  On failure returns an empty string so the scan can continue
+    using the normal metadata-only path.
+    """
+    _VISION_PROMPT = (
+        "Describe this image in 2-3 concise sentences. "
+        "Focus on the main subject, key visual elements, and any text visible in the image. "
+        "Be specific and factual."
+    )
+    try:
+        description = vision_provider.generate_with_image(_VISION_PROMPT, path)
+        return description.strip()
+    except Exception as exc:
+        log.warning("Vision model description failed for %s: %s", path, exc)
+        return ""
+
+
+def score_summary(text: str) -> float:
+    """Score an AI-generated summary by information richness.
+
+    Higher is better. Three independent signals are combined:
+
+    1. **Unique meaningful words** — alphabetic tokens with >= 3 chars, counted
+       after lowercasing and deduplication. Captures vocabulary breadth.
+    2. **Specific detail bonus** — digit sequences ("2025", "$1,200", "ref #42")
+       each add 1.5 points. Numbers make names more precise.
+    3. **Proper-noun bonus** — distinct capitalised words (e.g. ``Acme``,
+       ``March``, ``Invoice``) add 0.5 points each. Sentence-initial capitals
+       appear in both summaries equally so they don't skew relative comparison.
+    """
+    if not text or not text.strip():
+        return 0.0
+
+    # Signal 1: unique vocabulary
+    unique_words = len(set(re.findall(r"[a-zA-Z]{3,}", text.lower())))
+
+    # Signal 2: numeric specificity
+    digit_sequences = len(re.findall(r"\d+", text))
+
+    # Signal 3: unique proper nouns (distinct capitalised words with >= 3 chars)
+    # Sentence-initial capitals appear in both summaries equally, so they don't
+    # skew the relative comparison.
+    proper_nouns = len(set(re.findall(r"\b[A-Z][a-z]{2,}", text)))
+
+    return float(unique_words) + digit_sequences * 1.5 + proper_nouns * 0.5
+
+
+def pick_best_summary(
+    ocr_summary: str,
+    vision_summary: str,
+    file_name: str = "",
+) -> tuple[str, str, str]:
+    """Compare two image summaries and return the richer one.
+
+    Both summaries are scored with :func:`score_summary`. The one with the
+    higher score is returned.
+
+    Returns ``(chosen_summary, winner_label, reason)`` where *winner_label* is
+    ``"ocr"`` or ``"vision"`` and *reason* is a human-readable explanation
+    suitable for log output.
+    """
+    ocr_score = score_summary(ocr_summary)
+    vision_score = score_summary(vision_summary)
+
+    log.debug(
+        "SUMMARY BENCHMARK  file=%s  ocr_score=%.1f  vision_score=%.1f",
+        file_name, ocr_score, vision_score,
+    )
+
+    if ocr_score >= vision_score:
+        reason = f"OCR score={ocr_score:.1f} >= vision score={vision_score:.1f}"
+        return ocr_summary, "ocr", reason
+    else:
+        reason = f"vision score={vision_score:.1f} > OCR score={ocr_score:.1f}"
+        return vision_summary, "vision", reason
 
 
 # ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Check,
@@ -12,11 +13,14 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Eye,
+  Info,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { api } from '../../api/client'
 import type { Operation } from '../../api/types'
 import ConfidenceBadge from '../ConfidenceBadge'
+import FilePreviewModal from '../FilePreviewModal'
 
 // ---------------------------------------------------------------------------
 // Shared action helpers (mirrored from ProposedChanges)
@@ -28,7 +32,9 @@ function getAction(op: Operation): ActionKind {
   const srcDir = op.source_path.includes('/')
     ? op.source_path.substring(0, op.source_path.lastIndexOf('/'))
     : '.'
-  const destDir = op.dest_path.replace(/\/$/, '')
+  const destDir = op.dest_path.includes('/')
+    ? op.dest_path.substring(0, op.dest_path.lastIndexOf('/'))
+    : '.'
   const pathChanged = srcDir !== destDir
   if (nameChanged && pathChanged) return 'move-rename'
   if (nameChanged) return 'rename'
@@ -96,6 +102,7 @@ export default function ScanFileList({
   activeLabel = 'Analyzing…',
 }: ScanFileListProps) {
   const queryClient = useQueryClient()
+  const [previewPath, setPreviewPath] = useState<string | null>(null)
 
   // Build a lookup: source_path → Operation
   const opByPath = new Map<string, Operation>()
@@ -195,6 +202,15 @@ export default function ScanFileList({
     const { label, color, Icon } = ACTION_META[action]
     const nameChanged = op.proposed_name !== op.original_name
 
+    // Derive consistent absolute directory paths for the path-change row
+    const sourceDir = op.source_path.includes('/')
+      ? op.source_path.substring(0, op.source_path.lastIndexOf('/'))
+      : '.'
+    const destDir = op.dest_path.includes('/')
+      ? op.dest_path.substring(0, op.dest_path.lastIndexOf('/'))
+      : '.'
+    const pathChanged = sourceDir !== destDir
+
     return (
       <div
         className={clsx(
@@ -208,7 +224,7 @@ export default function ScanFileList({
                 : 'border-gray-800 hover:bg-gray-900'
         )}
       >
-        {/* Row 1: action badge + file description + status/actions */}
+        {/* Row 1: action badge + filename(s) + preview btn + status/actions */}
         <div className="flex items-center gap-3 min-w-0">
           {/* Action badge */}
           <span
@@ -221,7 +237,7 @@ export default function ScanFileList({
             {label}
           </span>
 
-          {/* Main description */}
+          {/* Filename(s) */}
           <div className="min-w-0 flex-1">
             {action === 'organize' ? (
               <span className="text-xs text-gray-500 truncate" title={op.source_path}>
@@ -240,30 +256,23 @@ export default function ScanFileList({
                 <span className="font-mono text-brand-400 truncate" title={op.proposed_name}>
                   {op.proposed_name}
                 </span>
-                {action === 'move-rename' && (
-                  <span
-                    className="text-gray-600 truncate ml-1 shrink-0 max-w-[180px]"
-                    title={op.dest_path}
-                  >
-                    · {op.dest_path}
-                  </span>
-                )}
               </div>
             ) : (
-              <div className="flex items-center gap-1 min-w-0 text-xs">
-                <span
-                  className="text-gray-300 truncate shrink-0 max-w-[160px]"
-                  title={op.original_name}
-                >
-                  {op.original_name}
-                </span>
-                <ArrowRight className="h-3 w-3 text-gray-600 shrink-0" />
-                <span className="text-amber-300 truncate" title={op.dest_path}>
-                  {op.dest_path}
-                </span>
-              </div>
+              // Move-only: same name, new location — just show the filename
+              <span className="text-xs text-gray-300 truncate" title={op.original_name}>
+                {op.original_name}
+              </span>
             )}
           </div>
+
+          {/* Preview button */}
+          <button
+            className="btn-ghost py-1 px-2 text-gray-500 hover:text-white shrink-0"
+            onClick={() => setPreviewPath(op.source_path)}
+            title="Preview file content"
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </button>
 
           {/* Status / actions */}
           <div className="shrink-0">
@@ -318,7 +327,26 @@ export default function ScanFileList({
           </div>
         </div>
 
-        {/* Row 2: category + confidence + elapsed */}
+        {/* Row 2: path comparison — only when the directory changes */}
+        {pathChanged && (
+          <div className="flex items-center gap-1.5 pl-0.5 text-xs font-mono">
+            <span
+              className="text-gray-500 truncate max-w-[240px]"
+              title={sourceDir}
+            >
+              {sourceDir}/
+            </span>
+            <ArrowRight className="h-3 w-3 text-gray-700 shrink-0" />
+            <span
+              className="text-brand-500 truncate max-w-[240px]"
+              title={destDir}
+            >
+              {destDir}/
+            </span>
+          </div>
+        )}
+
+        {/* Row 3: category + confidence + elapsed + summary tooltip */}
         <div className="flex items-center gap-2 pl-0.5">
           <span className="badge badge-gray">{op.category}</span>
           <span title={op.ai_reasoning ?? undefined}>
@@ -328,6 +356,18 @@ export default function ScanFileList({
             <span className="text-xs text-gray-500 tabular-nums flex items-center gap-1" title="LLM processing time">
               <Clock className="h-3 w-3" />
               {formatElapsed(op.elapsed_seconds)}
+            </span>
+          )}
+          {op.content_summary && (
+            <span className="relative group/summary ml-auto">
+              <span className="flex items-center gap-1 text-xs text-gray-500 cursor-default">
+                <Info className="h-3 w-3" />
+                <span className="sr-only">Summary</span>
+              </span>
+              <div className="pointer-events-none absolute bottom-full right-0 mb-2 z-50 w-72 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2.5 text-xs text-gray-300 shadow-xl opacity-0 group-hover/summary:opacity-100 transition-opacity duration-150">
+                <p className="mb-1 font-medium text-gray-400 uppercase tracking-wide text-[10px]">Content Summary</p>
+                <p className="leading-relaxed">{op.content_summary}</p>
+              </div>
             </span>
           )}
         </div>
@@ -340,6 +380,10 @@ export default function ScanFileList({
   // ---------------------------------------------------------------------------
   return (
     <div className="space-y-4">
+      {/* File preview modal */}
+      {previewPath && (
+        <FilePreviewModal path={previewPath} onClose={() => setPreviewPath(null)} />
+      )}
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-400">

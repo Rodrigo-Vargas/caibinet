@@ -8,7 +8,8 @@ import type {
   ApplyResult,
   HealthResponse,
   LLMHealthResponse,
-  FileListResponse
+  FileListResponse,
+  FilePreviewResponse
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -116,7 +117,16 @@ export const api = {
   // Ollama model list (proxied through backend)
   listModels: () => request<string[]>('/settings/models'),
 
+  // Ollama vision-capable model list (models with "clip" in their families)
+  listVisionModels: () => request<string[]>('/settings/vision-models'),
+
   // Cache
   clearSummaryCache: () =>
-    request<{ deleted: number }>('/cache/summary', { method: 'DELETE' })
+    request<{ deleted: number }>('/cache/summary', { method: 'DELETE' }),
+
+  // File preview
+  previewFile: (path: string) => {
+    const qs = new URLSearchParams({ path }).toString()
+    return request<FilePreviewResponse>(`/preview?${qs}`)
+  }
 }

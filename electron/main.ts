@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join } from 'path'
 import { startSidecar, stopSidecar, waitForBackend } from './sidecar'
 
@@ -35,6 +35,11 @@ async function createWindow(): Promise<void> {
 app.whenReady().then(async () => {
   // Register IPC handlers before creating window
   ipcMain.handle('get-backend-port', () => backendPort)
+
+  ipcMain.handle('open-file', async (_event, filePath: string) => {
+    const error = await shell.openPath(filePath)
+    return error === '' ? null : error
+  })
 
   ipcMain.handle('select-directory', async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {

@@ -29,6 +29,7 @@ class SettingsOut(BaseModel):
     context_aware: bool
     summary_cache_ttl_minutes: int
     ocr_enabled: bool
+    image_model: str
 
 
 class SettingsIn(BaseModel):
@@ -40,6 +41,7 @@ class SettingsIn(BaseModel):
     context_aware: Optional[bool] = None
     summary_cache_ttl_minutes: Optional[int] = None
     ocr_enabled: Optional[bool] = None
+    image_model: Optional[str] = None
 
 
 def _load_settings(db: DBSession) -> SettingsOut:
@@ -63,6 +65,7 @@ def _load_settings(db: DBSession) -> SettingsOut:
         context_aware=_get("context_aware", app_settings.context_aware),
         summary_cache_ttl_minutes=_get("summary_cache_ttl_minutes", app_settings.summary_cache_ttl_minutes),
         ocr_enabled=_get("ocr_enabled", app_settings.ocr_enabled),
+        image_model=_get("image_model", app_settings.image_model),
     )
 
 
@@ -113,6 +116,19 @@ def list_models(db: DBSession = Depends(get_db)) -> List[str]:
     )
     try:
         return provider.list_models()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Cannot reach Ollama: {exc}") from exc
+
+
+@router.get("/settings/vision-models", response_model=List[str])
+def list_vision_models(db: DBSession = Depends(get_db)) -> List[str]:
+    """Return only models that support vision/image input (have 'clip' in their families)."""
+    current = _load_settings(db)
+    provider = OllamaProvider(
+        ProviderConfig(model=current.ollama_model, base_url=current.ollama_url)
+    )
+    try:
+        return provider.list_vision_models()
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Cannot reach Ollama: {exc}") from exc
 

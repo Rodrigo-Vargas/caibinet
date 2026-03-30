@@ -19,6 +19,12 @@ export default function SettingsPage() {
     retry: false
   })
 
+  const { data: visionModels = [], refetch: refetchVisionModels, isFetching: visionModelsLoading } = useQuery({
+    queryKey: ['visionModels'],
+    queryFn: api.listVisionModels,
+    retry: false
+  })
+
   const [form, setForm] = useState<Settings>({
     ollama_url: 'http://localhost:11434',
     ollama_model: 'llama3',
@@ -28,6 +34,7 @@ export default function SettingsPage() {
     context_aware: false,
     summary_cache_ttl_minutes: 1440,
     ocr_enabled: false,
+    image_model: '',
   })
 
   const [pingStatus, setPingStatus] = useState<'idle' | 'ok' | 'err'>('idle')
@@ -58,6 +65,7 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       queryClient.invalidateQueries({ queryKey: ['models'] })
+      queryClient.invalidateQueries({ queryKey: ['visionModels'] })
       // Re-check LLM health immediately with the new settings
       api.llmHealth().then((res) => {
         setLLMStatus(res.ok ? 'ok' : 'error', res.detail)
@@ -225,6 +233,45 @@ export default function SettingsPage() {
             </p>
           </div>
         </label>
+
+        <div className="space-y-1 pt-2 border-t border-gray-700">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-400">Image vision model</label>
+            <button
+              type="button"
+              className="text-gray-500 hover:text-gray-300 transition-colors"
+              onClick={() => refetchVisionModels()}
+              title="Refresh vision model list"
+            >
+              <RefreshCw className={`h-3 w-3 ${visionModelsLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+          <p className="text-xs text-gray-500">
+            When a multimodal model is selected (e.g. <span className="font-mono">llava</span>,{' '}
+            <span className="font-mono">llama3.2-vision</span>), it is used to visually describe
+            image files and produce smarter names and categories. When left blank, the app falls
+            back to OCR (if enabled) or metadata-only processing.
+          </p>
+          {visionModels.length > 0 ? (
+            <select
+              className="input"
+              value={form.image_model}
+              onChange={(e) => setForm((f) => ({ ...f, image_model: e.target.value }))}
+            >
+              <option value="">(none — use OCR / metadata fallback)</option>
+              {visionModels.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="input"
+              value={form.image_model}
+              onChange={(e) => setForm((f) => ({ ...f, image_model: e.target.value }))}
+              placeholder="e.g. llava or llama3.2-vision (leave blank to disable)"
+            />
+          )}
+        </div>
 
         <div className="space-y-1 pt-2 border-t border-gray-700">
           <label className="text-xs text-gray-400">Summary cache TTL (minutes)</label>

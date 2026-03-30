@@ -4,6 +4,7 @@ interface Window {
   electronAPI: {
     getBackendPort: () => Promise<number>
     selectDirectory: () => Promise<string | null>
+    openFile: (filePath: string) => Promise<string | null>
   }
 }
 

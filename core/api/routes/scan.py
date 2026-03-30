@@ -20,7 +20,7 @@ from ...db.models import (
 )
 from ...db.session import get_db
 from ...engine.scanner import scan_directory, build_folder_tree
-from ...engine.extractor import extract
+from ...engine.extractor import extract, extract_image_vision, pick_best_summary
 from ...engine.decision import evaluate
 from ...ai.ollama import OllamaProvider
 from ...ai.base import ProviderConfig
@@ -209,6 +209,14 @@ def _retry_single_file(op_id: str, source_path: str, session_id: str, directory:
             timeout=effective.ollama_timeout,
         ))
 
+        vision_provider: OllamaProvider | None = None
+        if effective.image_model:
+            vision_provider = OllamaProvider(ProviderConfig(
+                model=effective.image_model,
+                base_url=effective.ollama_url,
+                timeout=effective.ollama_timeout,
+            ))
+
         folder_tree = build_folder_tree(directory, effective.ignore_patterns)
 
         p = Path(source_path)
@@ -242,6 +250,25 @@ def _retry_single_file(op_id: str, source_path: str, session_id: str, directory:
         summary = _get_cached_summary(file_record.sha256, effective.summary_cache_ttl_minutes, db)
         if summary is not None:
             log.debug("RETRY SUMMARY CACHE HIT  file=%s", file_record.name)
+        elif vision_provider and content_type == "image_ocr":
+            # Both OCR and vision model available — run both and pick the richer output.
+            summary_prompt = render_summary_prompt(
+                name=file_record.name,
+                ext=file_record.extension,
+                size=file_record.size,
+                content=content,
+                content_type=content_type,
+            )
+            ocr_summary = ai.generate(summary_prompt).strip()
+            vision_summary = extract_image_vision(file_record.path, vision_provider)
+            summary, winner, reason = pick_best_summary(ocr_summary, vision_summary, file_record.name)
+            log.info("RETRY IMAGE BENCHMARK  file=%s -> %s wins (%s)", file_record.name, winner.upper(), reason)
+            _set_cached_summary(file_record.sha256, summary, effective.summary_cache_ttl_minutes, db)
+        elif vision_provider and content_type == "image_no_ocr":
+            log.debug("RETRY LLM VISION SUMMARY REQUEST  file=%s", file_record.name)
+            summary = extract_image_vision(file_record.path, vision_provider)
+            log.debug("RETRY LLM VISION SUMMARY RESPONSE  file=%s summary=%s", file_record.name, summary)
+            _set_cached_summary(file_record.sha256, summary, effective.summary_cache_ttl_minutes, db)
         else:
             summary_prompt = render_summary_prompt(
                 name=file_record.name,
@@ -362,6 +389,17 @@ def _run_scan(session_id: str, directory: str, dry_run: bool) -> None:
             timeout=effective.ollama_timeout,
         )
         ai = OllamaProvider(provider_config)
+
+        # Optional dedicated vision provider for image description
+        vision_provider: OllamaProvider | None = None
+        if effective.image_model:
+            vision_provider = OllamaProvider(ProviderConfig(
+                model=effective.image_model,
+                base_url=effective.ollama_url,
+                timeout=effective.ollama_timeout,
+            ))
+            log.info("Image vision model enabled: %s", effective.image_model)
+
         folder_tree = build_folder_tree(directory, effective.ignore_patterns)
         log.debug("Folder tree for scan:\n%s", folder_tree)
 
@@ -394,6 +432,27 @@ def _run_scan(session_id: str, directory: str, dry_run: bool) -> None:
                 summary = _get_cached_summary(file_record.sha256, effective.summary_cache_ttl_minutes, db)
                 if summary is not None:
                     log.debug("SUMMARY CACHE HIT  file=%s", file_record.name)
+                elif vision_provider and content_type == "image_ocr":
+                    # Both OCR and vision model available — run both and pick the richer output.
+                    summary_prompt = render_summary_prompt(
+                        name=file_record.name,
+                        ext=file_record.extension,
+                        size=file_record.size,
+                        content=content,
+                        content_type=content_type,
+                    )
+                    ocr_summary = ai.generate(summary_prompt).strip()
+                    vision_summary = extract_image_vision(file_record.path, vision_provider)
+                    summary, winner, reason = pick_best_summary(ocr_summary, vision_summary, file_record.name)
+                    log.info("IMAGE BENCHMARK  file=%s -> %s wins (%s)", file_record.name, winner.upper(), reason)
+                    log.debug("IMAGE BENCHMARK SUMMARY  file=%s summary=%s", file_record.name, summary)
+                    _set_cached_summary(file_record.sha256, summary, effective.summary_cache_ttl_minutes, db)
+                elif vision_provider and content_type == "image_no_ocr":
+                    # No OCR available — use the vision model directly.
+                    log.debug("LLM VISION SUMMARY REQUEST  file=%s", file_record.name)
+                    summary = extract_image_vision(file_record.path, vision_provider)
+                    log.debug("LLM VISION SUMMARY RESPONSE  file=%s summary=%s", file_record.name, summary)
+                    _set_cached_summary(file_record.sha256, summary, effective.summary_cache_ttl_minutes, db)
                 else:
                     summary_prompt = render_summary_prompt(
                         name=file_record.name,

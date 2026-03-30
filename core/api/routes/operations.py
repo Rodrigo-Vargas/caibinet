@@ -1,13 +1,15 @@
 """Operations and sessions routes."""
 from __future__ import annotations
 
+import mimetypes
+import os
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 
-from ...db.models import Operation, OperationStatus, Session as SessionModel, SessionStatus
+from ...db.models import Operation, OperationStatus, Session as SessionModel, SessionStatus, SummaryCache
 from ...db.session import get_db
 from ...engine import executor
 
@@ -33,9 +35,10 @@ class OperationOut(BaseModel):
     status: str
     error: Optional[str] = None
     elapsed_seconds: Optional[float] = None
+    content_summary: Optional[str] = None
 
     @classmethod
-    def from_orm(cls, op: Operation) -> "OperationOut":
+    def from_orm(cls, op: Operation, summary: Optional[str] = None) -> "OperationOut":
         return cls(
             id=op.id,
             session_id=op.session_id,
@@ -51,6 +54,7 @@ class OperationOut(BaseModel):
             status=op.status.value if hasattr(op.status, "value") else str(op.status),
             error=op.error,
             elapsed_seconds=op.elapsed_seconds,
+            content_summary=summary,
         )
 
 
@@ -156,7 +160,8 @@ def list_operations(
     if status:
         q = q.filter(Operation.status == status)
     ops = q.order_by(Operation.created_at.asc()).all()
-    return [OperationOut.from_orm(op) for op in ops]
+    summaries = _get_summaries([op.file_hash for op in ops if op.file_hash], db)
+    return [OperationOut.from_orm(op, summaries.get(op.file_hash)) for op in ops]
 
 
 @router.post("/operations/{op_id}/approve", response_model=OperationOut)
@@ -164,7 +169,8 @@ def approve_operation(op_id: str, db: DBSession = Depends(get_db)) -> OperationO
     op = _get_op(op_id, db)
     op.status = OperationStatus.approved
     db.commit()
-    return OperationOut.from_orm(op)
+    summary = _get_single_summary(op.file_hash, db)
+    return OperationOut.from_orm(op, summary)
 
 
 @router.post("/operations/{op_id}/skip", response_model=OperationOut)
@@ -172,7 +178,23 @@ def skip_operation(op_id: str, db: DBSession = Depends(get_db)) -> OperationOut:
     op = _get_op(op_id, db)
     op.status = OperationStatus.skipped
     db.commit()
-    return OperationOut.from_orm(op)
+    summary = _get_single_summary(op.file_hash, db)
+    return OperationOut.from_orm(op, summary)
+
+
+def _get_summaries(file_hashes: List[str], db: DBSession) -> dict:
+    """Return a {file_hash: summary} dict for the given hashes."""
+    if not file_hashes:
+        return {}
+    rows = db.query(SummaryCache).filter(SummaryCache.file_hash.in_(file_hashes)).all()
+    return {row.file_hash: row.summary for row in rows}
+
+
+def _get_single_summary(file_hash: Optional[str], db: DBSession) -> Optional[str]:
+    if not file_hash:
+        return None
+    row = db.query(SummaryCache).filter(SummaryCache.file_hash == file_hash).first()
+    return row.summary if row else None
 
 
 def _get_op(op_id: str, db: DBSession) -> Operation:
@@ -180,3 +202,55 @@ def _get_op(op_id: str, db: DBSession) -> Operation:
     if not op:
         raise HTTPException(status_code=404, detail="Operation not found")
     return op
+
+
+# ---------------------------------------------------------------------------
+# File preview endpoint
+# ---------------------------------------------------------------------------
+
+class FilePreviewResponse(BaseModel):
+    content: str
+    is_binary: bool
+    size: int
+    truncated: bool
+    mime_type: str
+
+
+_PREVIEW_MAX_CHARS = 4_000
+
+
+@router.get("/preview", response_model=FilePreviewResponse)
+def preview_file(path: str) -> FilePreviewResponse:
+    """Return a short text preview of the file at *path*.
+
+    Binary or unreadable files are indicated via ``is_binary=True`` with an
+    empty ``content`` string so the frontend can display a suitable message.
+    """
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=400, detail="Not a regular file")
+
+    size = os.path.getsize(path)
+    mime_type, _ = mimetypes.guess_type(path)
+    mime_type = mime_type or "application/octet-stream"
+
+    try:
+        with open(path, "r", encoding="utf-8", errors="strict") as fh:
+            raw = fh.read(_PREVIEW_MAX_CHARS + 1)
+        truncated = len(raw) > _PREVIEW_MAX_CHARS
+        return FilePreviewResponse(
+            content=raw[:_PREVIEW_MAX_CHARS],
+            is_binary=False,
+            size=size,
+            truncated=truncated,
+            mime_type=mime_type,
+        )
+    except (UnicodeDecodeError, PermissionError):
+        return FilePreviewResponse(
+            content="",
+            is_binary=True,
+            size=size,
+            truncated=False,
+            mime_type=mime_type,
+        )
