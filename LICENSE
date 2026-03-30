@@ -1,0 +1,101 @@
+Caibinet Source Available License
+Version 1.0, March 2026
+
+Copyright (c) 2026 Rodrigo Vargas <rodrigovargas123@gmail.com>
+All rights reserved.
+
+TERMS AND CONDITIONS
+
+1. DEFINITIONS
+
+   "Software" means the Caibinet source code, documentation, and all associated
+   files included in this repository.
+
+   "Author" means Rodrigo Vargas, the original copyright holder.
+
+   "Use" means running, executing, or otherwise employing the Software for any
+   personal, internal, educational, or non-commercial purpose.
+
+   "Contribution" means any modification, addition, or improvement to the
+   Software submitted to the Author for potential inclusion in the official
+   repository.
+
+   "Monetize" means selling, licensing, sublicensing, offering as a hosted
+   service for pay (SaaS), bundling in a commercial product, or otherwise
+   generating revenue directly or indirectly from the Software or a derivative
+   of it.
+
+2. GRANT OF USE
+
+   Subject to the terms of this License, you are granted a worldwide,
+   royalty-free, non-exclusive, non-transferable right to:
+
+   a) Download, install, and run the Software for personal, educational, or
+      internal business purposes;
+
+   b) Study and modify the Software for your own non-commercial use;
+
+   c) Submit Contributions to the Author via pull requests or other standard
+      contribution mechanisms.
+
+3. CONTRIBUTIONS
+
+   By submitting a Contribution, you grant the Author a perpetual, irrevocable,
+   worldwide, royalty-free, exclusive license to use, reproduce, modify,
+   distribute, and commercialize your Contribution as part of the Software,
+   under any terms the Author chooses.
+
+   You represent that you have the right to grant this license and that your
+   Contribution does not infringe any third-party rights.
+
+4. RESTRICTIONS
+
+   The following are expressly prohibited without prior written permission from
+   the Author:
+
+   a) Monetizing the Software or any derivative work in any form, including
+      but not limited to: selling copies, offering it as a paid service,
+      including it in a commercial product or bundle, or using it to provide
+      fee-based consulting services where the Software itself is the primary
+      deliverable;
+
+   b) Redistributing the Software or derivative works to third parties outside
+      your organization, whether in source or binary form;
+
+   c) Removing or altering any copyright notices, license texts, or attribution
+      statements in the Software;
+
+   d) Using the name "Caibinet", its logo, or the Author's name to endorse or
+      promote products derived from this Software without explicit written
+      permission.
+
+5. EXCLUSIVE COMMERCIAL RIGHTS
+
+   The Author retains the sole and exclusive right to Monetize the Software and
+   any derivative works thereof. Nothing in this License grants any party other
+   than the Author the right to commercialize the Software.
+
+6. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL
+   THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN
+   AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+7. TERMINATION
+
+   This License and the rights granted hereunder terminate automatically if you
+   violate any term of this License. Upon termination, you must destroy all
+   copies of the Software in your possession.
+
+8. GOVERNING LAW
+
+   This License shall be governed by and construed in accordance with the laws
+   of the jurisdiction in which the Author resides, without regard to conflict
+   of law principles.
+
+---
+
+For commercial licensing inquiries, please contact: rodrigovargas123@gmail.com
